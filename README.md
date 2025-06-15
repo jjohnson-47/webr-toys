@@ -1,6 +1,6 @@
 # webr-toys
 
-**Hub-enabled R playground** – _MVP branch_
+**Hub-enabled R playground** – _MVP branch_ (testing CI trigger)
 
 This repository hosts small, embeddable R tools (APIs & widgets) that will be
 served through two channels:

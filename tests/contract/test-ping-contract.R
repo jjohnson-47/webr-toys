@@ -2,33 +2,26 @@ library(testthat)
 library(httr)
 library(callr)
 
-# Load schema validation utilities
-source("tests/contract/utils-schema.R")
+# Load test utilities
+if (file.exists("tests/contract/utils-schema.R")) {
+  source("tests/contract/utils-schema.R")
+  source("tests/contract/test-helpers.R")
+} else if (file.exists("utils-schema.R")) {
+  source("utils-schema.R")
+  source("test-helpers.R")
+} else {
+  stop("Cannot find test utility files")
+}
 
 # Contract tests for /ping endpoint
 test_that("/ping response conforms to JSON schema", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/ping", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to respond
+  res <- wait_for_api(port, "/ping")
   
   proc$kill()  # Clean up
   
@@ -40,7 +33,7 @@ test_that("/ping response conforms to JSON schema", {
   response_body <- jsonlite::fromJSON(rawToChar(res$content))
   
   # Contract validation - response must conform to schema
-  schema_path <- "tests/contract/schema/ping-response.json"
+  schema_path <- get_schema_path("ping-response.json")
   expect_true(file.exists(schema_path), "Schema file must exist")
   
   # Validate response against JSON schema
@@ -57,7 +50,7 @@ test_that("/ping response conforms to JSON schema", {
 test_that("ping schema validates correctly", {
   # Test valid response
   valid_response <- list(status = "pong")
-  schema_path <- "tests/contract/schema/ping-response.json"
+  schema_path <- get_schema_path("ping-response.json")
   
   expect_true(validate_json_schema(valid_response, schema_path))
   

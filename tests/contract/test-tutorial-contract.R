@@ -2,8 +2,16 @@ library(testthat)
 library(httr)
 library(callr)
 
-# Load schema validation utilities
-source("tests/contract/utils-schema.R")
+# Load test utilities
+if (file.exists("tests/contract/utils-schema.R")) {
+  source("tests/contract/utils-schema.R")
+  source("tests/contract/test-helpers.R")
+} else if (file.exists("utils-schema.R")) {
+  source("utils-schema.R")
+  source("test-helpers.R")
+} else {
+  stop("Cannot find test utility files")
+}
 
 # Contract tests for tutorial endpoints
 test_that("/tutorial/info response conforms to schema", {
@@ -40,7 +48,13 @@ test_that("/tutorial/info response conforms to schema", {
   response_body <- jsonlite::fromJSON(rawToChar(res$content))
   
   # Contract validation
-  schema_path <- "tests/contract/schema/tutorial-info-response.json"
+  schema_path <- if (file.exists("tests/contract/schema/tutorial-info-response.json")) {
+    "tests/contract/schema/tutorial-info-response.json"
+  } else if (file.exists("schema/tutorial-info-response.json")) {
+    "schema/tutorial-info-response.json"
+  } else {
+    stop("Cannot find tutorial-info-response.json schema file")
+  }
   expect_true(file.exists(schema_path), "Schema file must exist")
   
   # Validate response against JSON schema
@@ -89,7 +103,13 @@ test_that("/tutorial/calculate-probability response conforms to schema", {
   response_body <- jsonlite::fromJSON(rawToChar(res$content))
   
   # Contract validation
-  schema_path <- "tests/contract/schema/probability-response.json"
+  schema_path <- if (file.exists("tests/contract/schema/probability-response.json")) {
+    "tests/contract/schema/probability-response.json"
+  } else if (file.exists("schema/probability-response.json")) {
+    "schema/probability-response.json"
+  } else {
+    stop("Cannot find probability-response.json schema file")
+  }
   expect_true(file.exists(schema_path), "Schema file must exist")
   
   # Validate response against JSON schema

@@ -1,0 +1,82 @@
+# Test Helper Functions for Contract Tests
+# Shared utilities for starting API servers and handling test setup
+
+#' Start API server in background for testing
+#' 
+#' @param port Port number to start server on
+#' @return callr process object
+start_test_api <- function(port) {
+  callr::r_bg(
+    func = function(p) {
+      # Set up library paths for background process
+      if (Sys.getenv("R_LIBS_USER") != "") {
+        .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+      }
+      
+      # Load required libraries
+      library(plumber)
+      library(jsonlite)
+      
+      # Load optional libraries
+      if (requireNamespace("uuid", quietly = TRUE)) {
+        library(uuid)
+      }
+      if (requireNamespace("ggplot2", quietly = TRUE)) {
+        library(ggplot2)
+      }
+      
+      cat("Starting API on port", p, "\n")
+      tryCatch({
+        pr <- plumber::plumb("api/plumber.R")
+        pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
+      }, error = function(e) {
+        cat("Error starting API:", e$message, "\n")
+        stop(e)
+      })
+    },
+    args = list(port),
+    supervise = TRUE,
+    stdout = "|",
+    stderr = "|"
+  )
+}
+
+#' Wait for API server to respond
+#' 
+#' @param port Port to test
+#' @param endpoint Endpoint to test (default: "/ping")
+#' @param max_attempts Maximum number of attempts (default: 20)
+#' @return HTTP response object or NULL if failed
+wait_for_api <- function(port, endpoint = "/ping", max_attempts = 20) {
+  for (i in seq_len(max_attempts)) {
+    Sys.sleep(0.5)
+    res <- tryCatch(
+      httr::GET(sprintf("http://127.0.0.1:%d%s", port, endpoint)),
+      error = function(e) NULL
+    )
+    if (!is.null(res) && httr::status_code(res) < 500) {
+      return(res)
+    }
+  }
+  return(NULL)
+}
+
+#' Get schema path with fallback handling
+#' 
+#' @param schema_name Schema file name (e.g., "ping-response.json")
+#' @return Full path to schema file
+get_schema_path <- function(schema_name) {
+  paths_to_try <- c(
+    file.path("tests", "contract", "schema", schema_name),
+    file.path("schema", schema_name),
+    file.path("..", "tests", "contract", "schema", schema_name)
+  )
+  
+  for (path in paths_to_try) {
+    if (file.exists(path)) {
+      return(path)
+    }
+  }
+  
+  stop(sprintf("Cannot find schema file: %s", schema_name))
+}

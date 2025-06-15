@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tutorial Info Response Schema",
+  "description": "Schema for /tutorial/info endpoint response",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Tutorial title"
+    },
+    "course": {
+      "type": "string", 
+      "description": "Course identifier"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Topic covered"
+    },
+    "distribution": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "formula": {"type": "string"},
+        "domain": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "mode": {"type": "number"},
+        "interpretation": {"type": "string"}
+      },
+      "required": ["name", "formula", "domain", "mode", "interpretation"]
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string"},
+          "lower": {"type": "number"},
+          "upper": {"type": "number"},
+          "answer": {"type": "number"}
+        },
+        "required": ["question", "lower", "upper", "answer"]
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "description": "Available API endpoints"
+    }
+  },
+  "required": ["title", "course", "topic", "distribution", "examples", "endpoints"],
+  "additionalProperties": false
+}

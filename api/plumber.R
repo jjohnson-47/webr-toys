@@ -55,3 +55,9 @@ function() {
   list(status = "pong")
 }
 
+# Include tutorial endpoints
+source("api/tutorial-pdfs.R", local = TRUE)
+
+# Include tutorial web interface
+source("api/tutorial-ui.R", local = TRUE)
+

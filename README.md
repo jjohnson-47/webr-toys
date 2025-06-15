@@ -10,9 +10,15 @@ served through two channels:
 2. A static documentation / demo site published via **GitHub Pages** (gh-pages
    branch).
 
-## 🚀 Live Demo
+## 🚀 Live Demo & Educational Tools
 
-Try the API endpoints in your browser:
+**Interactive R Tutorials:**
+- **[Continuous PDFs Tutorial](http://localhost:8080/tutorial)** - Interactive tutorial for STAT A253 students
+  - Visualize probability distributions
+  - Calculate probabilities with real-time integration
+  - Work through textbook examples step-by-step
+
+**Development Resources:**
 - **[Live Demo Site](https://jjohnson-47.github.io/webr-toys/articles/demo.html)** - Interactive demo with /ping endpoint
 - **[API Documentation](https://jjohnson-47.github.io/webr-toys/)** - Full API reference and docs
 

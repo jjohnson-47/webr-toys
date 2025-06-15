@@ -10,7 +10,7 @@ served through two channels:
 2. A static documentation / demo site published via **GitHub Pages** (gh-pages
    branch).
 
-Quickstart (local)
+Quickfart (local)
 ------------------
 
 ```bash

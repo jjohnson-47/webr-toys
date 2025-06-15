@@ -47,20 +47,51 @@ test_that("can start simple R background process", {
   }
 })
 
-test_that("can load plumber in background process", {
-  # Test if plumber can be loaded in background
+test_that("can start actual plumber server in background", {
+  # Test if we can start a real Plumber server that stays alive
+  source("test-helpers.R")
+  
   proc <- callr::r_bg(
     func = function() {
       if (Sys.getenv("R_LIBS_USER") != "") {
         .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
       }
       
+      cat("Working directory:", getwd(), "\n")
+      cat("Looking for API file...\n")
+      
+      # Try to find the API file
+      api_paths <- c("api/plumber.R", "../../api/plumber.R", "../../../api/plumber.R")
+      api_file <- NULL
+      
+      for (path in api_paths) {
+        if (file.exists(path)) {
+          api_file <- path
+          cat("Found API file at:", path, "\n")
+          break
+        }
+      }
+      
+      if (is.null(api_file)) {
+        cat("ERROR: Could not find api/plumber.R file\n")
+        return("api_file_not_found")
+      }
+      
       cat("Attempting to load plumber...\n")
       library(plumber)
       cat("Plumber loaded successfully!\n")
       
-      Sys.sleep(1)
-      return("plumber_loaded")
+      cat("Creating plumber router from:", api_file, "\n")
+      tryCatch({
+        pr <- plumber::plumb(api_file)
+        cat("Router created successfully!\n")
+        cat("Starting server on port 8889...\n")
+        # This should be a blocking call that keeps the process alive
+        pr$run(host = "127.0.0.1", port = 8889, swagger = FALSE)
+      }, error = function(e) {
+        cat("ERROR in plumber startup:", e$message, "\n")
+        return("plumber_error")
+      })
     },
     supervise = TRUE,
     stdout = "|", 

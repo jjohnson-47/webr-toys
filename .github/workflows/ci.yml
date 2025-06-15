@@ -41,7 +41,7 @@ jobs:
       - name: Install required R packages
         shell: Rscript {0}
         run: |
-          install.packages(c('plumber', 'httr', 'jsonlite', 'testthat'), repos = 'https://cloud.r-project.org')
+          install.packages(c('plumber', 'httr', 'jsonlite', 'testthat', 'callr'), repos = 'https://cloud.r-project.org')
 
       - name: Run unit tests
         shell: Rscript {0}

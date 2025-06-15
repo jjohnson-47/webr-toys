@@ -16,9 +16,35 @@ test_that("can start simple R background process", {
   
   Sys.sleep(2)
   
+  # Capture diagnostic info if process fails
+  if (!proc$is_alive()) {
+    cat("\n=== BACKGROUND PROCESS DIAGNOSTIC ===\n")
+    cat("Process alive:", proc$is_alive(), "\n")
+    cat("Exit status:", proc$get_exit_status(), "\n")
+    
+    # Try to read any output
+    tryCatch({
+      stdout_lines <- proc$read_output_lines()
+      if (length(stdout_lines) > 0) {
+        cat("STDOUT:\n", paste(stdout_lines, collapse="\n"), "\n")
+      }
+    }, error = function(e) cat("Error reading stdout:", e$message, "\n"))
+    
+    tryCatch({
+      stderr_lines <- proc$read_error_lines()
+      if (length(stderr_lines) > 0) {
+        cat("STDERR:\n", paste(stderr_lines, collapse="\n"), "\n")
+      }
+    }, error = function(e) cat("Error reading stderr:", e$message, "\n"))
+    
+    cat("=== END DIAGNOSTIC ===\n")
+  }
+  
   expect_true(proc$is_alive())
-  proc$kill()
-  expect_false(proc$is_alive())
+  if (proc$is_alive()) {
+    proc$kill()
+    expect_false(proc$is_alive())
+  }
 })
 
 test_that("can load plumber in background process", {
@@ -42,6 +68,33 @@ test_that("can load plumber in background process", {
   )
   
   Sys.sleep(3)
+  
+  # Capture diagnostic info if process fails
+  if (!proc$is_alive()) {
+    cat("\n=== PLUMBER PROCESS DIAGNOSTIC ===\n")
+    cat("Process alive:", proc$is_alive(), "\n")
+    cat("Exit status:", proc$get_exit_status(), "\n")
+    
+    # Try to read any output
+    tryCatch({
+      stdout_lines <- proc$read_output_lines()
+      if (length(stdout_lines) > 0) {
+        cat("STDOUT:\n", paste(stdout_lines, collapse="\n"), "\n")
+      }
+    }, error = function(e) cat("Error reading stdout:", e$message, "\n"))
+    
+    tryCatch({
+      stderr_lines <- proc$read_error_lines()
+      if (length(stderr_lines) > 0) {
+        cat("STDERR:\n", paste(stderr_lines, collapse="\n"), "\n")
+      }
+    }, error = function(e) cat("Error reading stderr:", e$message, "\n"))
+    
+    cat("=== END PLUMBER DIAGNOSTIC ===\n")
+  }
+  
   expect_true(proc$is_alive())
-  proc$kill()
+  if (proc$is_alive()) {
+    proc$kill()
+  }
 })

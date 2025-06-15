@@ -23,7 +23,7 @@ RUN apt-get update -y \
     && add-apt-repository "ppa:cran/libgit2" \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends \
-       r-base r-base-dev r-cran-plumber r-cran-jsonlite \
+       r-base r-base-dev r-cran-plumber r-cran-jsonlite r-cran-uuid \
        libcurl4-openssl-dev libsodium-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -34,12 +34,15 @@ RUN apt-get update -y \
 
 WORKDIR /srv/app
 COPY api ./api
+COPY entrypoint.R ./
+COPY authz-guard.yaml ./
 
 # ---------------------------
 # Expose & launch
 # ---------------------------
 
-EXPOSE 8000
+EXPOSE 8080
 
-# Start the Plumber API under tini so SIGTERM is propagated.
-CMD ["tini", "--", "R", "-q", "-e", "pr <- plumber::plumb('api/plumber.R'); pr$run(host='0.0.0.0', port=8000)"]
+# Start the application with sidecar integration
+# The sidecar command starts the agentic sidecar (auth + logging) then runs the R application
+CMD ["sidecar", "--", "R", "-q", "-f", "/srv/app/entrypoint.R"]

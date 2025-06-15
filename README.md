@@ -10,16 +10,23 @@ served through two channels:
 2. A static documentation / demo site published via **GitHub Pages** (gh-pages
    branch).
 
-Quickfart (local)
-------------------
+## 🚀 Live Demo
+
+Try the API endpoints in your browser:
+- **[Live Demo Site](https://jjohnson-47.github.io/webr-toys/articles/demo.html)** - Interactive demo with /ping endpoint
+- **[API Documentation](https://jjohnson-47.github.io/webr-toys/)** - Full API reference and docs
+
+## Quick Start (local)
 
 ```bash
 # Build & run the container
 docker build -t webr-toys:local .
-docker run --rm -p 8000:8000 webr-toys:local
+docker run --rm -p 8080:8080 webr-toys:local
 
-# → open http://localhost:8000/ping  👉  {"status":"pong"}
+# → open http://localhost:8080/ping  👉  {"status":"pong"}
 ```
+
+**Note:** The container now runs with sidecar auth on port 8080 (was 8000).
 
 Branch policy
 -------------

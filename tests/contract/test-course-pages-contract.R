@@ -118,4 +118,4 @@ test_that("Course page URLs are properly formatted", {
   
   # Should contain relative URLs for the tutorial
   expect_true(grepl('src="/tutorial"', content))
-}
+})

@@ -1,0 +1,26 @@
+name: deploy-docs
+
+on:
+  push:
+    branches:
+      - development
+      - main
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate placeholder documentation
+        run: |
+          mkdir -p public
+          echo '<!doctype html><html><head><meta charset="utf-8"><title>webr-toys</title></head><body><h1>webr-toys</h1><p>Placeholder docs.</p></body></html>' > public/index.html
+
+      - name: Deploy to GH Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+

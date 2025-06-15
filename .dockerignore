@@ -1,0 +1,13 @@
+# Ignore everything that isn’t required to build the container
+
+.git
+.gitignore
+.github
+tests
+docs
+README.md
+.Rhistory
+.RData
+.venv
+node_modules
+

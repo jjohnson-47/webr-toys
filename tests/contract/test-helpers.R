@@ -1,13 +1,36 @@
 # Test Helper Functions for Contract Tests
 # Shared utilities for starting API servers and handling test setup
 
+#' Find API file with fallback paths
+#' 
+#' @param filename API file name (e.g., "plumber.R")
+#' @return Full path to API file
+get_api_path <- function(filename) {
+  paths_to_try <- c(
+    file.path("api", filename),
+    file.path("..", "..", "api", filename),
+    file.path("../../api", filename)
+  )
+  
+  for (path in paths_to_try) {
+    if (file.exists(path)) {
+      return(path)
+    }
+  }
+  
+  stop(sprintf("Cannot find API file: %s", filename))
+}
+
 #' Start API server in background for testing
 #' 
 #' @param port Port number to start server on
 #' @return callr process object
 start_test_api <- function(port) {
+  # Find the API file path before starting background process
+  api_path <- get_api_path("plumber.R")
+  
   callr::r_bg(
-    func = function(p) {
+    func = function(p, api_file) {
       # Set up library paths for background process
       if (Sys.getenv("R_LIBS_USER") != "") {
         .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
@@ -25,16 +48,16 @@ start_test_api <- function(port) {
         library(ggplot2)
       }
       
-      cat("Starting API on port", p, "\n")
+      cat("Starting API on port", p, "with file", api_file, "\n")
       tryCatch({
-        pr <- plumber::plumb("api/plumber.R")
+        pr <- plumber::plumb(api_file)
         pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
       }, error = function(e) {
         cat("Error starting API:", e$message, "\n")
         stop(e)
       })
     },
-    args = list(port),
+    args = list(port, api_path),
     supervise = TRUE,
     stdout = "|",
     stderr = "|"
@@ -67,9 +90,10 @@ wait_for_api <- function(port, endpoint = "/ping", max_attempts = 20) {
 #' @return Full path to schema file
 get_schema_path <- function(schema_name) {
   paths_to_try <- c(
-    file.path("tests", "contract", "schema", schema_name),
     file.path("schema", schema_name),
-    file.path("..", "tests", "contract", "schema", schema_name)
+    file.path("tests", "contract", "schema", schema_name),
+    file.path("..", "..", "tests", "contract", "schema", schema_name),
+    file.path("../../tests/contract/schema", schema_name)
   )
   
   for (path in paths_to_try) {

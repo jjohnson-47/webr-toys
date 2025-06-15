@@ -74,13 +74,21 @@ test_contracts() {
         export R_LIBS_USER=~/R/library
         cd /Users/verlyn13/Development/work/webr-toys
         
+        # First verify working directory setup
+        echo \"=== Working Directory Validation ===\"
+        pwd
+        ls -la
+        echo \"\"
+        
         # Run contract tests with detailed output
         Rscript -e '
         .libPaths(c(\"~/R/library\", .libPaths()))
         
         # Check working directory and files
         cat(\"Working directory:\", getwd(), \"\n\")
-        cat(\"Files in tests/contract:\", paste(list.files(\"tests/contract\"), collapse=\", \"), \"\n\")
+        cat(\"api/plumber.R exists:\", file.exists(\"api/plumber.R\"), \"\n\")
+        cat(\"tests/contract exists:\", dir.exists(\"tests/contract\"), \"\n\")
+        cat(\"Files in current dir:\", paste(head(list.files(), 10), collapse=\", \"), \"\n\")
         
         # Run tests
         testthat::test_dir(\"tests/contract\", reporter=\"progress\")

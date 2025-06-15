@@ -34,6 +34,7 @@ RUN apt-get update -y \
 
 WORKDIR /srv/app
 COPY api ./api
+COPY course-pages ./course-pages
 COPY entrypoint.R ./
 COPY authz-guard.yaml ./
 

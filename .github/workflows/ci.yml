@@ -77,6 +77,13 @@ jobs:
         run: |
           testthat::test_dir('tests')
 
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         id: build
@@ -104,14 +111,6 @@ jobs:
       - name: Install cosign
         if: github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')
         uses: sigstore/cosign-installer@v3
-
-      - name: Login to Container Registry
-        if: github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push and sign container image
         if: github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')

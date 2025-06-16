@@ -65,7 +65,12 @@ jobs:
       - name: Run unit tests
         shell: Rscript {0}
         run: |
-          testthat::test_dir('tests', filter = '^(?!contract/)')
+          # Run non-contract tests (test files directly in tests/ directory)
+          test_files <- list.files('tests', pattern = '^test.*[.]R$', full.names = TRUE)
+          for (file in test_files) {
+            cat("Testing:", file, "\n")
+            testthat::test_file(file)
+          }
           
       - name: Run all tests (final verification)
         shell: Rscript {0}

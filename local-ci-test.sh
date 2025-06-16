@@ -73,7 +73,18 @@ fi
 # Step 6: Run unit tests  
 echo "🔍 Running unit tests..."
 if [ -d "tests" ]; then
-    Rscript -e "testthat::test_dir('tests', filter = '^(?!contract/)')"
+    Rscript -e "
+    # Run non-contract tests (test files directly in tests/ directory)
+    test_files <- list.files('tests', pattern = '^test.*[.]R$', full.names = TRUE)
+    if (length(test_files) > 0) {
+      for (file in test_files) {
+        cat('Testing:', file, '\n')
+        testthat::test_file(file)
+      }
+    } else {
+      cat('No unit test files found in tests/ directory\n')
+    }
+    "
 else
     echo "No unit tests found, skipping..."
 fi

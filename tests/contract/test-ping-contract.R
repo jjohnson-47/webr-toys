@@ -43,8 +43,8 @@ test_that("/ping response conforms to JSON schema", {
   )
   
   # Additional contract assertions
-  expect_equal(response_body$status, "pong", "Status must be 'pong'")
-  expect_equal(length(names(response_body)), 1, "Response must have exactly one property")
+  expect_equal(response_body$status, "pong", info = "Status must be 'pong'")
+  expect_equal(length(names(response_body)), 1, info = "Response must have exactly one property")
 })
 
 test_that("ping schema validates correctly", {

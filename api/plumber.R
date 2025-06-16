@@ -56,11 +56,29 @@ function() {
 }
 
 # Include tutorial endpoints
-source("api/tutorial-pdfs.R", local = TRUE)
+# Safe sourcing function that tries multiple paths
+source_file_safe <- function(filename) {
+  # List of paths to try, in order of preference
+  paths_to_try <- c(
+    filename,                                    # Direct filename
+    file.path("api", basename(filename)),        # api/filename
+    file.path("..", "api", basename(filename)),  # ../api/filename  
+    file.path("../..", "api", basename(filename)) # ../../api/filename
+  )
+  
+  for (path in paths_to_try) {
+    if (file.exists(path)) {
+      source(path, local = TRUE)
+      return()
+    }
+  }
+  
+  # If none work, give a clear error
+  stop(sprintf("Cannot find source file: %s (tried: %s)", 
+               filename, paste(paths_to_try, collapse=", ")))
+}
 
-# Include tutorial web interface
-source("api/tutorial-ui.R", local = TRUE)
-
-# Include course pages
-source("api/course-pages.R", local = TRUE)
+source_file_safe("tutorial-pdfs.R")
+source_file_safe("tutorial-ui.R")
+source_file_safe("course-pages.R")
 

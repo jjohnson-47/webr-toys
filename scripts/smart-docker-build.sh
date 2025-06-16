@@ -91,6 +91,7 @@ build_with_main_dockerfile() {
 
 build_with_fallback_dockerfile() {
     log_info "Building with fallback Dockerfile (self-contained)..."
+    log_info "Using Ubuntu 22.04 standard packages (no PPAs)"
     docker build -f "$DOCKERFILE_FALLBACK" -t "$IMAGE_TAG" "$PROJECT_ROOT"
 }
 

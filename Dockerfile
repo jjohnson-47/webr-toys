@@ -19,12 +19,16 @@ USER root
 
 RUN apt-get update -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       software-properties-common gnupg curl \
-    && add-apt-repository "ppa:cran/libgit2" \
-    && apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-       r-base r-base-dev r-cran-plumber r-cran-jsonlite r-cran-uuid r-cran-ggplot2 \
-       libcurl4-openssl-dev libsodium-dev \
+       # R dependencies
+       r-base \
+       r-base-dev \
+       r-cran-plumber \
+       r-cran-jsonlite \
+       r-cran-uuid \
+       r-cran-ggplot2 \
+       # System library dependencies (libgit2-dev removed - not critical for basic functionality)
+       libcurl4-openssl-dev \
+       libsodium-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

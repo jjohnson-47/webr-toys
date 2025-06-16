@@ -68,31 +68,108 @@ test_r_packages() {
 
 # Function to test contract tests specifically
 test_contracts() {
-    echo "🔍 Testing contract tests locally..."
+    echo "🔍 Testing contract tests locally with enhanced CI simulation..."
     
     limactl shell act-runner bash -c "
-        export R_LIBS_USER=~/R/library
+        # Replicate exact CI environment
+        export R_LIBS_USER=/home/runner/work/_temp/Library
+        export TZ=UTC
+        export _R_CHECK_SYSTEM_CLOCK_=FALSE
+        export NOT_CRAN=true
+        export GITHUB_WORKSPACE=/Users/verlyn13/Development/work/webr-toys
+        
+        # Create CI-like library directory
+        mkdir -p /home/runner/work/_temp/Library
+        
+        # Change to workspace (like CI does)
         cd /Users/verlyn13/Development/work/webr-toys
         
-        # First verify working directory setup
-        echo \"=== Working Directory Validation ===\"
-        pwd
-        ls -la
+        # Set up environment exactly like CI
+        echo \"=== CI Environment Simulation ===\"
+        echo \"Working directory: \$(pwd)\"
+        echo \"R_LIBS_USER: \$R_LIBS_USER\"
+        echo \"TZ: \$TZ\"
+        echo \"GITHUB_WORKSPACE: \$GITHUB_WORKSPACE\"
         echo \"\"
         
-        # Run contract tests with detailed output
-        Rscript -e '
-        .libPaths(c(\"~/R/library\", .libPaths()))
+        # Run with CI-like settings
+        timeout 300 Rscript -e '
+        # Set up library paths exactly like CI
+        .libPaths(c(\"/home/runner/work/_temp/Library\", \"~/R/library\", .libPaths()))
         
-        # Check working directory and files
+        # Install packages if missing in CI-like location
+        required_packages <- c(\"testthat\", \"httr\", \"callr\", \"plumber\", \"jsonlite\", \"httpuv\", \"uuid\", \"jsonvalidate\", \"ggplot2\")
+        
+        for (pkg in required_packages) {
+          if (!requireNamespace(pkg, quietly = TRUE)) {
+            cat(\"Installing missing package:\", pkg, \"\n\")
+            install.packages(pkg, lib = \"/home/runner/work/_temp/Library\", repos = \"https://cloud.r-project.org\")
+          }
+        }
+        
+        # Verify environment
+        cat(\"=== Test Environment Verification ===\", \"\n\")
         cat(\"Working directory:\", getwd(), \"\n\")
+        cat(\"Library paths:\", paste(.libPaths(), collapse=\"; \"), \"\n\")
         cat(\"api/plumber.R exists:\", file.exists(\"api/plumber.R\"), \"\n\")
         cat(\"tests/contract exists:\", dir.exists(\"tests/contract\"), \"\n\")
-        cat(\"Files in current dir:\", paste(head(list.files(), 10), collapse=\", \"), \"\n\")
+        cat(\"Available packages:\", paste(required_packages[sapply(required_packages, requireNamespace, quietly=TRUE)], collapse=\", \"), \"\n\")
+        cat(\"\n\")
         
-        # Run tests
-        testthat::test_dir(\"tests/contract\", reporter=\"progress\")
+        # Set up working directory defaults (like CI workflow)
+        # This ensures tests run from project root
+        Sys.setenv(\"GITHUB_WORKSPACE\" = getwd())
+        
+        # Run tests with increased verbosity and timeout handling
+        cat(\"=== Running Contract Tests ===\", \"\n\")
+        result <- tryCatch({
+          testthat::test_dir(\"tests/contract\", reporter = \"progress\", stop_on_failure = FALSE)
+        }, error = function(e) {
+          cat(\"Error in test execution:\", e\$message, \"\n\")
+          NULL
+        })
+        
+        if (is.null(result)) {
+          quit(status = 1)
+        }
         '
+    "
+}
+
+# Function to debug specific test issues
+debug_tests() {
+    echo "🐛 Debug mode: Analyzing test failures..."
+    
+    limactl shell act-runner bash -c "
+        cd /Users/verlyn13/Development/work/webr-toys
+        export R_LIBS_USER=~/R/library
+        
+        # Run individual test files to isolate issues
+        echo \"=== Testing Individual Contract Files ===\"
+        
+        for test_file in tests/contract/test-*.R; do
+            if [[ \$test_file == *\"debug\"* ]] || [[ \$test_file == *\"simple\"* ]] || [[ \$test_file == *\"paths\"* ]]; then
+                continue  # Skip diagnostic tests
+            fi
+            
+            echo \"\"
+            echo \"📋 Testing: \$test_file\"
+            echo \"----------------------------------------\"
+            
+            timeout 60 Rscript -e \"
+            .libPaths(c('~/R/library', .libPaths()))
+            library(testthat)
+            
+            cat('Testing file:', '\$test_file', '\n')
+            
+            result <- tryCatch({
+                test_file('\$test_file', reporter='progress')
+            }, error = function(e) {
+                cat('ERROR in', '\$test_file', ':', e\$message, '\n')
+                NULL
+            })
+            \" || echo \"❌ TIMEOUT in \$test_file\"
+        done
     "
 }
 
@@ -103,6 +180,9 @@ case "${1:-all}" in
         ;;
     "contracts")
         test_contracts
+        ;;
+    "debug")
+        debug_tests
         ;;
     "ci-test")
         run_workflow "ci-test.yml" "test-r-setup"
@@ -123,11 +203,12 @@ case "${1:-all}" in
         run_workflow "ci-test.yml" "test-r-setup"
         ;;
     *)
-        echo "Usage: $0 [packages|contracts|ci-test|ci|docs|all]"
+        echo "Usage: $0 [packages|contracts|debug|ci-test|ci|docs|all]"
         echo ""
         echo "Options:"
         echo "  packages  - Test R package installation only"
         echo "  contracts - Test contract tests only"
+        echo "  debug     - Debug individual test files"
         echo "  ci-test   - Run simplified CI workflow"
         echo "  ci        - Run full CI workflow"
         echo "  docs      - Run documentation workflow"

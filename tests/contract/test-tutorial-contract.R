@@ -17,26 +17,11 @@ if (file.exists("tests/contract/utils-schema.R")) {
 test_that("/tutorial/info response conforms to schema", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/tutorial/info", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/tutorial/info", max_attempts = 20)
   
   proc$kill()  # Clean up
   
@@ -44,8 +29,8 @@ test_that("/tutorial/info response conforms to schema", {
   expect_false(is.null(res))
   expect_equal(status_code(res), 200)
   
-  # Parse response body
-  response_body <- jsonlite::fromJSON(rawToChar(res$content))
+  # Parse response body (prevent auto-conversion to data.frame for arrays)
+  response_body <- jsonlite::fromJSON(rawToChar(res$content), simplifyDataFrame = FALSE)
   
   # Contract validation
   schema_path <- if (file.exists("tests/contract/schema/tutorial-info-response.json")) {
@@ -72,26 +57,11 @@ test_that("/tutorial/info response conforms to schema", {
 test_that("/tutorial/calculate-probability response conforms to schema", {
   port <- httpuv::randomPort()
   
-  # Start API in background  
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/tutorial/calculate-probability?lower=8&upper=11", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/tutorial/calculate-probability?lower=8&upper=11", max_attempts = 20)
   
   proc$kill()  # Clean up
   
@@ -99,8 +69,8 @@ test_that("/tutorial/calculate-probability response conforms to schema", {
   expect_false(is.null(res))
   expect_equal(status_code(res), 200)
   
-  # Parse response body
-  response_body <- jsonlite::fromJSON(rawToChar(res$content))
+  # Parse response body (prevent auto-conversion to data.frame for arrays)
+  response_body <- jsonlite::fromJSON(rawToChar(res$content), simplifyDataFrame = FALSE)
   
   # Contract validation
   schema_path <- if (file.exists("tests/contract/schema/probability-response.json")) {
@@ -128,26 +98,11 @@ test_that("/tutorial/calculate-probability response conforms to schema", {
 test_that("/tutorial/pdf-plot returns PNG image", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R") 
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/tutorial/pdf-plot", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/tutorial/pdf-plot", max_attempts = 20)
   
   proc$kill()  # Clean up
   

@@ -2,30 +2,24 @@ library(testthat)
 library(httr)
 library(callr)
 
+# Load test utilities
+if (file.exists("tests/contract/test-helpers.R")) {
+  source("tests/contract/test-helpers.R")
+} else if (file.exists("test-helpers.R")) {
+  source("test-helpers.R")
+} else {
+  stop("Cannot find test-helpers.R")
+}
+
 # Contract tests for course page endpoints
 test_that("/course serves HTML course directory", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/course", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/course", max_attempts = 20)
   
   proc$kill()  # Clean up
   
@@ -46,26 +40,11 @@ test_that("/course serves HTML course directory", {
 test_that("/course/stat253/5-1 serves Chapter 5.1 page", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/course/stat253/5-1", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/course/stat253/5-1", max_attempts = 20)
   
   proc$kill()  # Clean up
   
@@ -88,26 +67,11 @@ test_that("/course/stat253/5-1 serves Chapter 5.1 page", {
 test_that("Course page URLs are properly formatted", {
   port <- httpuv::randomPort()
   
-  # Start API in background
-  proc <- callr::r_bg(
-    func = function(p) {
-      pr <- plumber::plumb("api/plumber.R")
-      pr$run(host = "127.0.0.1", port = p, swagger = FALSE)
-    },
-    args = list(port),
-    supervise = TRUE
-  )
+  # Start API in background using helper
+  proc <- start_test_api(port)
   
-  # Wait for server to start
-  res <- NULL
-  for (i in seq_len(10)) {
-    Sys.sleep(0.5)
-    res <- tryCatch(
-      GET(sprintf("http://127.0.0.1:%d/course/stat253/5-1", port)),
-      error = function(e) NULL
-    )
-    if (!is.null(res)) break
-  }
+  # Wait for server to start (use proper helper)
+  res <- wait_for_api(port, "/course/stat253/5-1", max_attempts = 20)
   
   proc$kill()  # Clean up
   

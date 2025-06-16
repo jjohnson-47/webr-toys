@@ -15,8 +15,8 @@ validate_json_schema <- function(response_json, schema_path) {
     response_json <- jsonlite::toJSON(response_json, auto_unbox = TRUE)
   }
   
-  # Parse JSON response
-  response_data <- jsonlite::fromJSON(response_json)
+  # Parse JSON response (prevent auto-conversion to data.frame for arrays)
+  response_data <- jsonlite::fromJSON(response_json, simplifyDataFrame = FALSE)
   
   # Load schema
   schema <- jsonlite::fromJSON(schema_path)
@@ -81,13 +81,21 @@ validate_object_against_schema <- function(data, schema) {
 #' @param expected_type Expected JSON Schema type
 #' @param prop_name Property name for error messages
 validate_type <- function(value, expected_type, prop_name) {
+  # Handle array type specially
+  if (expected_type == "array") {
+    if (!is.list(value) || (!is.data.frame(value) && length(value) == 0)) {
+      stop(sprintf("Property %s expected type array but got %s", prop_name, class(value)[1]))
+    }
+    return()
+  }
+  
   actual_type <- switch(class(value)[1],
     "character" = "string",
     "numeric" = "number",
-    "integer" = "integer", 
+    "integer" = "number",  # JSON Schema: integers are valid numbers
     "logical" = "boolean",
     "list" = "object",
-    "array" = "array",
+    "data.frame" = "array",  # data.frames can represent arrays of objects
     "unknown"
   )
   

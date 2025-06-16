@@ -31,21 +31,48 @@ start_test_api <- function(port) {
   
   callr::r_bg(
     func = function(p, api_file) {
-      # Set up library paths for background process
+      # Set up library paths for background process - ensure packages are available
+      user_lib <- "~/R/library"
+      if (dir.exists(user_lib)) {
+        .libPaths(c(user_lib, .libPaths()))
+      }
       if (Sys.getenv("R_LIBS_USER") != "") {
         .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
       }
       
-      # Load required libraries
-      library(plumber)
-      library(jsonlite)
+      cat("Library paths:", paste(.libPaths(), collapse="; "), "\n")
+      cat("Working directory:", getwd(), "\n")
+      
+      # Load required libraries with error handling
+      tryCatch({
+        library(plumber)
+        cat("✓ plumber loaded\n")
+      }, error = function(e) {
+        cat("✗ plumber failed:", e$message, "\n")
+        stop("plumber package not available")
+      })
+      
+      tryCatch({
+        library(jsonlite) 
+        cat("✓ jsonlite loaded\n")
+      }, error = function(e) {
+        cat("✗ jsonlite failed:", e$message, "\n")
+        stop("jsonlite package not available")
+      })
       
       # Load optional libraries
       if (requireNamespace("uuid", quietly = TRUE)) {
         library(uuid)
+        cat("✓ uuid loaded\n")
+      } else {
+        cat("⚠ uuid not available\n")
       }
+      
       if (requireNamespace("ggplot2", quietly = TRUE)) {
         library(ggplot2)
+        cat("✓ ggplot2 loaded\n")
+      } else {
+        cat("⚠ ggplot2 not available\n")
       }
       
       cat("Starting API on port", p, "with file", api_file, "\n")

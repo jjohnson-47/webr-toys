@@ -133,15 +133,19 @@ build_docker() {
     check_docker_auth
     log_info "Building Docker image in Lima environment..."
     
-    # Pass GitHub token if available
+    # Pass GitHub token if available and use smart build
     if [ -n "${GITHUB_TOKEN:-}" ]; then
         limactl shell "$LIMA_NAME" bash -c "
             export GITHUB_TOKEN='$GITHUB_TOKEN'
             export GITHUB_ACTOR='${GITHUB_ACTOR:-local-ci}'
-            wt-docker-login && wt-build
+            cd /workspace/webr-toys
+            ./scripts/smart-docker-build.sh webr-toys:lima-test
         "
     else
-        limactl shell "$LIMA_NAME" bash -c "wt-build"
+        limactl shell "$LIMA_NAME" bash -c "
+            cd /workspace/webr-toys
+            ./scripts/smart-docker-build.sh webr-toys:lima-test
+        "
     fi
 }
 
@@ -162,6 +166,11 @@ status_environment() {
     fi
 }
 
+diagnose_docker() {
+    log_info "Running Docker diagnostics..."
+    "$PROJECT_ROOT/scripts/diagnose-base-image.sh"
+}
+
 show_help() {
     cat << EOF
 Lima CI Environment Manager for webr-toys
@@ -179,6 +188,7 @@ COMMANDS:
     ci          Run full CI simulation
     test        Run tests only
     build       Build Docker image (with registry auth if GITHUB_TOKEN set)
+    diagnose    Diagnose Docker registry and base image issues
     
     help        Show this help message
 
@@ -244,6 +254,9 @@ case "${1:-help}" in
     "build")
         check_lima
         build_docker
+        ;;
+    "diagnose")
+        diagnose_docker
         ;;
     "status")
         check_lima

@@ -84,11 +84,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Test base image availability
+        run: |
+          echo "🔍 Testing base image access..."
+          if docker manifest inspect ghcr.io/jjohnson-47/hub-base:latest >/dev/null 2>&1; then
+            echo "✅ Base image accessible, using main Dockerfile"
+            echo "USE_FALLBACK=false" >> $GITHUB_ENV
+          else
+            echo "⚠️ Base image not accessible, using fallback Dockerfile"
+            echo "USE_FALLBACK=true" >> $GITHUB_ENV
+          fi
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         id: build
         with:
           context: .
+          file: ${{ env.USE_FALLBACK == 'true' && './Dockerfile.fallback' || './Dockerfile' }}
           push: false
           tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
           labels: |

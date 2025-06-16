@@ -18,3 +18,12 @@ __pycache__/
 *.tar
 node_modules/
 
+# Lima CI Environment Cache
+.lima/cache/
+.lima/docker/
+
+# Local CI Environment
+.env
+tmp/
+artifacts/
+

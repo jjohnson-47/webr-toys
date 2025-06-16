@@ -1,11 +1,19 @@
 #!/bin/bash
-# Enhanced Local CI Testing with act
+# Enhanced Local CI Testing with act (Legacy)
 # Better replicates GitHub Actions environment
+#
+# NOTE: For new development, consider using the persistent Lima environment:
+#   ./scripts/lima-ci.sh start
+#   ./scripts/lima-ci.sh ci
+#
+# This script remains for backwards compatibility and specific debugging scenarios.
 
 set -e
 
-echo "🚀 Enhanced Local CI Testing with act + Lima"
-echo "============================================="
+echo "🚀 Enhanced Local CI Testing with act + Lima (Legacy)"
+echo "====================================================="
+echo "💡 TIP: Try the new persistent environment: ./scripts/lima-ci.sh start"
+echo ""
 
 # Set up environment variables
 export DOCKER_HOST="unix://$HOME/.lima/act-runner/sock/docker.sock"

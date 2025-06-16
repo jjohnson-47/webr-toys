@@ -1,0 +1,279 @@
+# Lima Configuration for webr-toys CI Environment
+# This creates a persistent, project-specific CI environment that emulates GitHub Actions
+# 
+# Usage:
+#   limactl start .lima/webr-toys-ci.yaml
+#   limactl shell webr-toys-ci
+#
+# The environment includes:
+# - Ubuntu 22.04 (matching GitHub Actions)
+# - Docker with buildx
+# - R with all required packages
+# - GitHub CLI for authentication
+# - Act for running workflows locally
+# - Persistent storage for packages and cache
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20241202/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+    digest: "sha256:0e25ca6ee9f08ec5d1148eb5c3c7a57976b4af835e8eb4f0bb1ac3f2b0f8d4aa"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20241202/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+    digest: "sha256:5ecac6447be66a164626744589adfe25c5e8e7ba1f9b25f8f7cd22e053ba18fe"
+
+# Minimum resources for CI operations
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+# Project-specific mounts - ensures work persists and is accessible
+mounts:
+  # Mount the entire project directory
+  - location: "/Users/verlyn13/Development/work/webr-toys"
+    mountPoint: "/workspace/webr-toys"
+    writable: true
+  
+  # Persistent cache directory for packages, Docker images, etc.
+  - location: "/Users/verlyn13/Development/work/webr-toys/.lima/cache"
+    mountPoint: "/cache"
+    writable: true
+    
+  # Docker data persistence
+  - location: "/Users/verlyn13/Development/work/webr-toys/.lima/docker"
+    mountPoint: "/var/lib/docker"
+    writable: true
+
+# Network configuration for Docker registry access
+networks:
+  - lima: shared
+
+# Environment setup script
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Create cache directories
+      mkdir -p /cache/{r-packages,docker-cache,apt-cache,act-cache}
+      
+      # Configure APT to use cache
+      echo 'Dir::Cache::Archives "/cache/apt-cache";' > /etc/apt/apt.conf.d/02cache
+      mkdir -p /cache/apt-cache/partial
+      
+      # Update system
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      
+      # Install essential packages matching GitHub Actions environment
+      apt-get install -y --no-install-recommends \
+        curl wget gnupg2 software-properties-common \
+        git build-essential \
+        ca-certificates lsb-release \
+        jq unzip \
+        libcurl4-openssl-dev libsodium-dev libssl-dev libxml2-dev \
+        libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+        libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
+      
+      # Install Docker (matching GitHub Actions)
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      apt-get update
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+      # Configure Docker to use cache
+      mkdir -p /etc/docker
+      cat > /etc/docker/daemon.json <<EOF
+      {
+        "data-root": "/cache/docker-cache",
+        "storage-driver": "overlay2",
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+      EOF
+      
+      # Install R (matching CI environment)
+      wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
+      add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+      apt-get update
+      apt-get install -y r-base r-base-dev
+      
+      # Install GitHub CLI
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+      chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+      apt-get update
+      apt-get install -y gh
+      
+      # Install act for local workflow testing
+      curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
+      mv ./bin/act /usr/local/bin/
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Configure R library path to use cache
+      mkdir -p /cache/r-packages
+      echo 'R_LIBS_USER="/cache/r-packages"' >> ~/.Renviron
+      echo '.libPaths(c("/cache/r-packages", .libPaths()))' >> ~/.Rprofile
+      
+      # Install R packages matching CI
+      Rscript -e '
+      options(repos = c(CRAN = "https://cloud.r-project.org"))
+      .libPaths(c("/cache/r-packages", .libPaths()))
+      
+      packages <- c("plumber", "httr", "jsonlite", "testthat", "callr", "httpuv", "uuid", "jsonvalidate", "ggplot2")
+      install.packages(packages)
+      
+      # Verify installation
+      for (pkg in packages) {
+        library(pkg, character.only = TRUE)
+        cat("✓", pkg, "loaded successfully\n")
+      }
+      '
+      
+      # Add user to docker group
+      sudo usermod -aG docker $USER
+      
+      # Create convenient aliases and functions
+      cat >> ~/.bashrc <<'EOF'
+      
+      # webr-toys CI environment aliases
+      alias wt-cd='cd /workspace/webr-toys'
+      alias wt-test='cd /workspace/webr-toys && Rscript -e "testthat::test_dir(\"tests\")"'
+      alias wt-test-contract='cd /workspace/webr-toys && Rscript -e "testthat::test_dir(\"tests/contract\")"'
+      alias wt-build='cd /workspace/webr-toys && docker build -t webr-toys:local .'
+      alias wt-act='cd /workspace/webr-toys && act'
+      
+      # GitHub Actions simulation function
+      wt-ci() {
+        cd /workspace/webr-toys
+        echo "🚀 Running webr-toys CI simulation..."
+        
+        # Simulate CI environment variables
+        export GITHUB_WORKSPACE="/workspace/webr-toys"
+        export GITHUB_ACTOR="local-ci"
+        export GITHUB_SHA=$(git rev-parse HEAD)
+        export GITHUB_REF="refs/heads/$(git branch --show-current)"
+        export RUNNER_OS="Linux"
+        export CI=true
+        
+        # Run the CI steps manually
+        echo "📦 Installing R packages..."
+        Rscript -e '
+        options(repos = c(CRAN = "https://cloud.r-project.org"))
+        .libPaths(c("/cache/r-packages", .libPaths()))
+        packages <- c("plumber", "httr", "jsonlite", "testthat", "callr", "httpuv", "uuid", "jsonvalidate", "ggplot2")
+        for (pkg in packages) {
+          if (!requireNamespace(pkg, quietly = TRUE)) {
+            install.packages(pkg)
+          }
+        }
+        '
+        
+        echo "🧪 Running contract tests..."
+        Rscript -e "testthat::test_dir('tests/contract')"
+        
+        echo "🧪 Running unit tests..."
+        Rscript -e "
+        test_files <- list.files('tests', pattern = '^test.*[.]R$', full.names = TRUE)
+        if (length(test_files) > 0) {
+          for (file in test_files) {
+            cat('Testing:', file, '\n')
+            testthat::test_file(file)
+          }
+        }
+        "
+        
+        echo "🧪 Running all tests (final verification)..."
+        Rscript -e "testthat::test_dir('tests')"
+        
+        echo "🐳 Building Docker image..."
+        docker build -t webr-toys:ci-test .
+        
+        echo "✅ CI simulation completed successfully!"
+      }
+      
+      # Docker registry authentication helper
+      wt-docker-login() {
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "Please set GITHUB_TOKEN environment variable"
+          echo "Get a token from: https://github.com/settings/tokens"
+          return 1
+        fi
+        
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        echo "✅ Logged into ghcr.io"
+      }
+      
+      # Show environment info
+      wt-info() {
+        echo "🖥️  webr-toys CI Environment Information"
+        echo "======================================"
+        echo "Workspace: /workspace/webr-toys"
+        echo "Cache: /cache"
+        echo "R Library: /cache/r-packages"
+        echo "Docker Data: /cache/docker-cache"
+        echo ""
+        echo "Available commands:"
+        echo "  wt-cd          - Change to project directory"
+        echo "  wt-test        - Run all tests"
+        echo "  wt-test-contract - Run contract tests only"
+        echo "  wt-build       - Build Docker image"
+        echo "  wt-ci          - Run full CI simulation"
+        echo "  wt-docker-login - Login to GitHub Container Registry"
+        echo "  wt-act         - Run GitHub Actions with act"
+        echo "  wt-info        - Show this information"
+        echo ""
+        echo "Git status:"
+        cd /workspace/webr-toys && git status --short || echo "Not in git repository"
+      }
+      
+      # Show info on login
+      wt-info
+      EOF
+
+# Auto-start essential services
+probes:
+  - mode: readiness
+    description: "docker to be ready"
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until command -v docker >/dev/null 2>&1; do sleep 3; done"; then
+        echo >&2 "docker is not installed yet"
+        exit 1
+      fi
+      if ! timeout 30s bash -c "until pgrep dockerd; do sleep 3; done"; then
+        echo >&2 "dockerd is not running"
+        exit 1
+      fi
+    hint: |
+      See "/var/log/cloud-init-output.log" in the guest
+
+# Message for when environment is ready
+message: |
+  🎉 webr-toys CI environment is ready!
+  
+  To get started:
+    limactl shell webr-toys-ci
+    wt-info
+  
+  The environment includes:
+  - ✅ Ubuntu 22.04 (matching GitHub Actions)
+  - ✅ Docker with buildx plugin
+  - ✅ R with all required packages (cached in /cache/r-packages)
+  - ✅ GitHub CLI for authentication
+  - ✅ Act for running workflows locally
+  - ✅ Project mounted at /workspace/webr-toys
+  - ✅ Persistent cache at /cache
+  
+  Quick commands:
+  - wt-ci: Run full CI simulation
+  - wt-test: Run all tests
+  - wt-build: Build Docker image

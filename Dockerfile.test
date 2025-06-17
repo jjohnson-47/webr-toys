@@ -1,0 +1,7 @@
+# Test Dockerfile using working registry to validate syntax
+FROM gcr.io/distroless/base-debian11:latest
+
+# Test that our basic Dockerfile syntax works
+WORKDIR /test
+COPY api /test/api
+CMD ["/bin/true"]

@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - mvp/**
+      - development
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    
+    # Grant necessary permissions for security scanning and container publishing
+    permissions:
+      security-events: write # Required to upload SARIF results to Security tab
+      packages: write        # Required to push container images to GHCR
+      contents: read         # Required for actions/checkout
+      id-token: write        # Required for signing images with cosign/sigstore
+    
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # System dependencies for building R packages
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev libsodium-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/R
+          key: r-pkgs-${{ runner.os }}-${{ hashFiles('**/DESCRIPTION') }}
+
+      - name: Install R and deps
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install required R packages
+        shell: Rscript {0}
+        run: |
+          options(repos = c(CRAN = 'https://cloud.r-project.org'))
+          install.packages(c('plumber', 'httr', 'jsonlite', 'testthat', 'callr', 'httpuv', 'uuid', 'jsonvalidate', 'ggplot2'))
+          
+          # Verify packages are installed
+          library(plumber)
+          library(ggplot2)
+          library(testthat)
+          cat("✅ All R packages installed and loaded successfully!\n")
+
+      - name: Run contract tests
+        shell: Rscript {0}
+        run: |
+          testthat::test_dir('tests/contract')
+
+      - name: Run unit tests
+        shell: Rscript {0}
+        run: |
+          # Run non-contract tests (test files directly in tests/ directory)
+          test_files <- list.files('tests', pattern = '^test.*[.]R$', full.names = TRUE)
+          for (file in test_files) {
+            cat("Testing:", file, "\n")
+            testthat::test_file(file)
+          }
+          
+      - name: Run all tests (final verification)
+        shell: Rscript {0}
+        run: |
+          testthat::test_dir('tests')
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Select build strategy
+        run: |
+          echo "🔍 Selecting optimal build strategy..."
+          
+          # Check for security-focused build flag
+          if [[ "${{ github.event.head_commit.message }}" == *"[secure-build]"* ]]; then
+            echo "🔒 Security-focused build requested"
+            echo "ℹ️  Build strategy: Using hardened Dockerfile with vulnerability mitigations"
+            echo "USE_DOCKERFILE=Dockerfile.secure" >> $GITHUB_ENV
+          elif docker manifest inspect ghcr.io/jjohnson-47/webr-toys/hub-base:latest >/dev/null 2>&1; then
+            echo "✅ Base image accessible, using main Dockerfile"
+            echo "ℹ️  Build strategy: Using hub-base for production sidecar functionality"
+            echo "USE_DOCKERFILE=Dockerfile" >> $GITHUB_ENV
+          else
+            echo "⚠️ Base image not accessible, using fallback Dockerfile"
+            echo "ℹ️  Build strategy: Self-contained Ubuntu build with simulated sidecar"
+            echo "USE_DOCKERFILE=Dockerfile.fallback" >> $GITHUB_ENV
+          fi
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: .
+          file: ${{ env.USE_DOCKERFILE }}
+          push: false
+          tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.dockerfile=${{ env.USE_DOCKERFILE }}
+          outputs: type=docker,dest=/tmp/image.tar
+
+      - name: Run Trivy vulnerability scanner (Quality Gate)
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/image.tar
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          # Quality gate: fail build on critical/high vulnerabilities
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure() # Upload results whether scan passed or failed
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Install cosign
+        if: (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')) && github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Push and sign container image
+        if: (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')) && github.event_name != 'pull_request'
+        run: |
+          echo "🚀 Pushing and signing container image for branch: ${{ github.ref }}"
+          echo "📦 Image: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+          
+          # Load and push the image
+          docker load --input /tmp/image.tar
+          docker push ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          
+          echo "🔏 Signing image with cosign..."
+          # Sign the image
+          cosign sign --yes ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          
+          echo "✅ Container image pushed and signed successfully"

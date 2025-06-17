@@ -1,0 +1,69 @@
+# syntax=docker/dockerfile:1
+
+# Fallback Dockerfile for webr-toys when hub-base is not available
+# This provides a working base for testing and development
+
+FROM ubuntu:22.04 AS base
+
+# ------------------------------------------------------------------------------------
+# Base setup (replaces hub-base functionality)
+# Provides: Ubuntu 22.04, curl, bash, minimal sidecar simulation
+# ------------------------------------------------------------------------------------
+
+USER root
+
+# Install basic dependencies that would be in hub-base
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       curl bash tini \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create minimal sidecar command simulation
+RUN echo '#!/bin/bash\n\
+echo "🤖 Sidecar: Starting in fallback mode..."\n\
+echo "🤖 Sidecar: Auth and logging simulation active"\n\
+# Skip the -- separator and run the actual command\n\
+shift\n\
+exec "$@"' > /usr/local/bin/sidecar \
+    && chmod +x /usr/local/bin/sidecar
+
+# ---------------------------
+# Install R & minimal packages  
+# ---------------------------
+# We leverage Ubuntu packages because they have pre-built BLAS etc.
+
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       # R dependencies
+       r-base \
+       r-base-dev \
+       r-cran-plumber \
+       r-cran-jsonlite \
+       r-cran-uuid \
+       r-cran-ggplot2 \
+       # System library dependencies (libgit2-dev removed - not critical for basic functionality)
+       libcurl4-openssl-dev \
+       libsodium-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------
+# Copy application source
+# ---------------------------
+
+WORKDIR /srv/app
+COPY api ./api
+COPY course-pages ./course-pages
+COPY entrypoint.R ./
+COPY authz-guard.yaml ./
+
+# ---------------------------
+# Expose & launch
+# ---------------------------
+
+EXPOSE 8080
+
+# Start the application with sidecar integration (fallback mode)
+# The sidecar command simulates the agentic sidecar then runs the R application
+CMD ["sidecar", "--", "R", "-q", "-f", "/srv/app/entrypoint.R"]

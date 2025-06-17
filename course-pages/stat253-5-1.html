@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5.1: Continuous Probability Distributions</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 850px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+        h1, h2, h3 { color: #003366; /* UAA Dark Blue */ }
+        h1 { border-bottom: 2px solid #FFC20E; padding-bottom: 10px; }
+        h2 { border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 40px; }
+        .card { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; border-radius: 8px; margin: 20px 0; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .concept-box { background-color: #e6f7e6; border-left: 5px solid #008000; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .concept-box h3 { margin-top: 0; border: none; }
+        .calculus-bridge-box { background-color: #e6f3ff; border-left: 5px solid #0055A2; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .calculus-bridge-box p, .calculus-bridge-box h3 { margin-top: 0; }
+        .interactive-tool { background-color: #fff9e6; border-left: 5px solid #FFC20E; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .interactive-tool h3 { margin-top: 0; border: none; color: #996600; }
+        .tool-iframe { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; margin: 15px 0; }
+        .tool-link { display: inline-block; background: #003366; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+        .tool-link:hover { background: #004080; color: white; text-decoration: none; }
+        pre { background-color: #f6f8fa; border: 1px solid #ddd; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.95em; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 10px; }
+        .step-highlight { background-color: #f0f8ff; border: 1px solid #b3d9ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>5.1: Continuous Probability Distributions</h1>
+        <p style="color: #666; font-style: italic;">STAT A253 - University of Alaska Anchorage | Summer 2025</p>
+    </header>
+    <main>
+        <section class="card">
+            <h2>From Discrete to Continuous Random Variables</h2>
+            <p>In previous chapters, we focused on <strong>discrete random variables</strong>, where outcomes are countable (e.g., the number of heads in three coin flips). For these variables, we can assign a specific probability to each individual outcome.</p>
+            <p>Now, we turn to <strong>continuous random variables</strong>, which can take on an infinite number of values within a given range. Think of measurements common in the sciences, like height, weight, time, or temperature. It doesn't make sense to talk about the probability of a salmon weighing <em>exactly</em> 3.5000... kg. Instead, we talk about the probability of its weight falling <em>within an interval</em>, such as between 3.4 kg and 3.6 kg.</p>
+        </section>
+
+        <section class="card">
+            <h2>Core Lecture: Introducing the PDF</h2>
+            <p>The following video provides a great introduction to the key ideas for this section. Watch it first to get a strong conceptual overview.</p>
+            <div class="video-container">
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/OWSOhpS00_s" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+        </section>
+
+        <div class="concept-box">
+            <h3>The Probability Density Function (PDF)</h3>
+            <p>As the video explained, the probability distribution of a continuous random variable <code>x</code> is described by a smooth curve called a <strong>probability density function</strong>, or <strong>f(x)</strong>. This curve is a model for the shape of the data's distribution. The single most important idea is:</p>
+            <p style="text-align: center; font-size: 1.2em; font-weight: bold; margin-top: 15px;">For a continuous variable, probability is represented by the area under the PDF curve.</p>
+        </div>
+
+        <section class="card">
+            <h2>Key Properties of a Continuous Probability Distribution</h2>
+            <ol>
+                <li><strong>Area Equals Probability:</strong> The probability that <code>x</code> falls between two values, <code>a</code> and <code>b</code>, is the area under the curve <code>f(x)</code> between those points.</li>
+                <li><strong>Total Area is 1:</strong> The total area under the entire PDF curve must always equal 1.</li>
+                <li><strong>Probability of a Single Point is Zero:</strong> The area above a single point has zero width, and therefore zero area. This means P(x = a) = 0.</li>
+                <li><strong>Endpoints Don't Affect Probability:</strong> As a result of the previous point, including or excluding the endpoints of an interval does not change the probability. Therefore, P(a < x < b) = P(a ≤ x ≤ b).</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>⚙️ Worked Example: A Triangular Distribution</h2>
+            <p>Let's make this concrete. Researchers studying the friction in a photocopier's paper feeder model the friction coefficient, <code>x</code>, with the triangular PDF shown below. The coefficient can range from 5 to 15.</p>
+            <p><strong>Problem:</strong> Find the probability that the friction coefficient <code>x</code> is less than 10, or P(x < 10).</p>
+            <p>Since the distribution only exists for values greater than or equal to 5, this is the same as finding the area of the shaded region from x=5 to x=10.</p>
+        </section>
+
+        <div class="interactive-tool">
+            <h3>🎯 Interactive Tutorial: Explore the Triangular Distribution</h3>
+            <p>Use this interactive tool to visualize the triangular PDF and calculate probabilities. Try different bounds to see how the shaded area changes!</p>
+            
+            <div class="step-highlight">
+                <strong>Try This First:</strong> Click "Example A: P(X < 10)" in the tool below to see the exact problem we're solving.
+            </div>
+
+            <!-- Embedded webr-toys tutorial -->
+            <iframe src="http://localhost:8080/tutorial" class="tool-iframe" 
+                    title="Interactive R Tutorial: Continuous PDFs"></iframe>
+
+            <p style="margin-top: 15px;">
+                <a href="http://localhost:8080/tutorial" class="tool-link" target="_blank">
+                    🚀 Open in New Window
+                </a>
+                <a href="http://localhost:8080/tutorial/info" class="tool-link" target="_blank">
+                    📊 API Reference
+                </a>
+            </p>
+        </div>
+
+        <section class="card">
+            <h3>Step 1: Visualize the Problem</h3>
+            <p>Use the interactive tool above to generate a plot with bounds from 5 to 10. You'll see the triangular distribution with the left portion shaded.</p>
+            
+            <h3>Step 2: Calculate the Area Using Geometry</h3>
+            <p>For simple shapes like this triangle, we can use basic geometry:</p>
+            <ul>
+                <li><strong>Base</strong> of the triangle = 10 - 5 = 5</li>
+                <li><strong>Height</strong> of the triangle = 0.2 (peak of the triangle)</li>
+            </ul>
+            <p style="padding-left: 30px;">Area = ½ × base × height = ½ × 5 × 0.2 = <strong>0.5</strong></p>
+            <p>Therefore, there is a <strong>50% probability</strong> that the friction coefficient is less than 10.</p>
+
+            <h3>Step 3: Verify with the Interactive Calculator</h3>
+            <p>In the tool above, enter lower bound = 5 and upper bound = 10, then click "Calculate Probability". You should get exactly 0.5, confirming our geometric calculation!</p>
+        </section>
+
+        <div class="calculus-bridge-box">
+            <h3>Beyond Geometry: How R Calculates Area</h3>
+            <p>Most PDFs are not simple geometric shapes. The formal way to find the area under a curve is with calculus (integration). While you are not required to do this by hand, it's useful to see how R would tackle this problem numerically using the <code>integrate()</code> function.</p>
+            
+            <p><strong>The R code behind our interactive tool:</strong></p>
+            <pre><code class="language-r">
+# First, we define the triangular PDF as a function in R
+triangular_pdf <- function(x) {
+  # This uses ifelse() for a compact, "vectorized" definition
+  ifelse(x >= 5 & x < 10, 0.04 * (x - 5),
+    ifelse(x >= 10 & x <= 15, -0.04 * (x - 15), 0)
+  )
+}
+
+# Now, use the integrate() function to find the area under our PDF
+# from the lower limit of 5 to the upper limit of 10.
+result <- integrate(triangular_pdf, lower = 5, upper = 10)
+
+# Print the result
+print(result)
+            </code></pre>
+            <p><strong>R Output:</strong> <code>0.5 with absolute error < 5.6e-15</code></p>
+            <p>The result, <strong>0.5</strong>, perfectly matches our geometric calculation!</p>
+        </div>
+
+        <div class="interactive-tool">
+            <h3>🧮 Practice Problems</h3>
+            <p>Now try these problems using the interactive tool above:</p>
+            <ol>
+                <li><strong>P(X > 12):</strong> Find the probability that the friction coefficient is greater than 12. <em>(Hint: Use bounds 12 to 15)</em></li>
+                <li><strong>P(8 < X < 11):</strong> Find the probability that the friction coefficient is between 8 and 11.</li>
+                <li><strong>Verification:</strong> What's the total area under the entire curve? <em>(Hint: Use bounds 5 to 15 - should equal 1!)</em></li>
+            </ol>
+            
+            <div class="step-highlight">
+                <strong>Pro Tip:</strong> Use the "Example" buttons in the tool for quick access to textbook problems!
+            </div>
+        </div>
+
+        <section class="card">
+            <h2>🎯 Key Takeaways</h2>
+            <ul>
+                <li><strong>Continuous variables</strong> represent measurements that can take infinite values in a range</li>
+                <li><strong>Probability = Area</strong> under the PDF curve between two points</li>
+                <li><strong>Total area</strong> under any PDF must equal 1</li>
+                <li><strong>R's integrate() function</strong> can calculate areas for any PDF shape</li>
+                <li><strong>Interactive tools</strong> help visualize and verify calculations</li>
+            </ul>
+        </section>
+        
+        <section class="card">
+            <h2>Looking Ahead</h2>
+            <p>For the common probability distributions we will study next (like the Uniform and Normal distributions), you will not need to perform calculations with geometry or calculus. R provides convenient, built-in functions (like <code>punif()</code> and <code>pnorm()</code>) that make finding these probabilities easy.</p>
+            <p><strong>Next Up:</strong> Please use the navigation to proceed to the optional page, <strong>"5.1 (Advanced): A Deeper Look with Calculus,"</strong> or skip directly to Section 5.2.</p>
+        </section>
+
+        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; text-align: center;">
+            <p>Interactive tools powered by <strong>webr-toys</strong> | University of Alaska Anchorage</p>
+            <p><em>All calculations performed using R statistical computing environment</em></p>
+        </footer>
+    </main>
+</body>
+</html>

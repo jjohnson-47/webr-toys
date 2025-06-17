@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ping Response Schema",
+  "description": "Schema for /ping endpoint response",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["pong"],
+      "description": "Health check status response"
+    }
+  },
+  "required": ["status"],
+  "additionalProperties": false
+}

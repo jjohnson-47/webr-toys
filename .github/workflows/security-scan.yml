@@ -1,0 +1,139 @@
+name: Security Scan & Remediation
+
+# This workflow focuses specifically on security scanning and vulnerability remediation
+# It can be run independently to test security improvements
+
+on:
+  # Run on security-related changes
+  push:
+    branches:
+      - mvp/**
+      - development
+    paths:
+      - 'Dockerfile*'
+      - '.github/workflows/security-scan.yml'
+      - 'scripts/local-trivy-scan.sh'
+  
+  # Run on schedule for regular security checks
+  schedule:
+    - cron: '0 6 * * 1' # Every Monday at 6 AM UTC
+  
+  # Allow manual triggering for security testing
+  workflow_dispatch:
+    inputs:
+      dockerfile:
+        description: 'Dockerfile to test'
+        required: false
+        default: 'Dockerfile.fallback'
+        type: choice
+        options:
+          - 'Dockerfile'
+          - 'Dockerfile.fallback'
+          - 'Dockerfile.secure'
+          - 'Dockerfile.multistage'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      security-events: write
+      contents: read
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile: 
+          - 'Dockerfile.fallback'
+          - 'Dockerfile.secure'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: webr-toys:security-test-${{ matrix.dockerfile }}
+          load: true
+
+      - name: Run comprehensive security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: webr-toys:security-test-${{ matrix.dockerfile }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.dockerfile }}.sarif'
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.dockerfile }}.sarif'
+          category: 'security-scan-${{ matrix.dockerfile }}'
+
+      - name: Run quality gate test
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: webr-toys:security-test-${{ matrix.dockerfile }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          exit-code: '0' # Don't fail the workflow, just report
+
+      - name: Generate security report
+        run: |
+          echo "## Security Scan Results for ${{ matrix.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count vulnerabilities
+          CRITICAL=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity CRITICAL --quiet \
+            --format json webr-toys:security-test-${{ matrix.dockerfile }} | \
+            jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' || echo "0")
+          
+          HIGH=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity HIGH --quiet \
+            --format json webr-toys:security-test-${{ matrix.dockerfile }} | \
+            jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' || echo "0")
+          
+          echo "- **Critical vulnerabilities:** $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- **High vulnerabilities:** $HIGH" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CRITICAL" = "0" ] && [ "$HIGH" = "0" ]; then
+            echo "✅ **Quality Gate: PASSED** - No critical or high vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Quality Gate: FAILED** - Critical or high vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  security-comparison:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: always()
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Security Analysis Summary
+        run: |
+          echo "## 🛡️ Security Analysis Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Recommendations:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Use Dockerfile.secure** for production deployments" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Regular updates**: Run security scans weekly" >> $GITHUB_STEP_SUMMARY  
+          echo "3. **Monitor trends**: Track vulnerability counts over time" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Quick fixes**: Use \`[secure-build]\` in commit messages for hardened builds" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Review Security tab for detailed vulnerability information" >> $GITHUB_STEP_SUMMARY
+          echo "- Consider using distroless base images for further hardening" >> $GITHUB_STEP_SUMMARY
+          echo "- Implement automated security patch updates" >> $GITHUB_STEP_SUMMARY

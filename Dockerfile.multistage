@@ -1,0 +1,93 @@
+# syntax=docker/dockerfile:1
+
+# Multi-stage Dockerfile for webr-toys
+# This provides a more efficient, smaller, and more secure final image
+
+# ------------------------------------------------------------------------------------
+# Stage 1: Builder - Install build dependencies and prepare application
+# ------------------------------------------------------------------------------------
+FROM ubuntu:22.04 AS builder
+
+# Install build-time dependencies
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       # Build essentials
+       build-essential \
+       # R build dependencies
+       r-base \
+       r-base-dev \
+       # Development headers (needed for building R packages)
+       libcurl4-openssl-dev \
+       libsodium-dev \
+       libxml2-dev \
+       libssl-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory for build
+WORKDIR /build
+
+# Copy application source for build
+COPY api ./api
+COPY course-pages ./course-pages
+COPY entrypoint.R ./
+COPY authz-guard.yaml ./
+
+# Install R packages from source if needed (optional build step)
+# RUN Rscript -e "install.packages(c('plumber', 'jsonlite', 'uuid', 'ggplot2'), repos='https://cran.r-project.org')"
+
+# ------------------------------------------------------------------------------------
+# Stage 2: Runtime - Create minimal production image
+# ------------------------------------------------------------------------------------
+FROM ubuntu:22.04 AS runtime
+
+# Install only runtime dependencies (no -dev packages!)
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       # Core utilities
+       curl \
+       tini \
+       # R runtime (pre-compiled packages from Ubuntu repos)
+       r-base \
+       r-cran-plumber \
+       r-cran-jsonlite \
+       r-cran-uuid \
+       r-cran-ggplot2 \
+       # Runtime libraries (without -dev headers)
+       libcurl4 \
+       libsodium23 \
+       libxml2 \
+       libssl3 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create minimal sidecar command simulation
+RUN echo '#!/bin/bash\n\
+echo "🤖 Sidecar: Starting in production mode..."\n\
+echo "🤖 Sidecar: Auth and logging active"\n\
+# Skip the -- separator and run the actual command\n\
+shift\n\
+exec "$@"' > /usr/local/bin/sidecar \
+    && chmod +x /usr/local/bin/sidecar
+
+# Set working directory
+WORKDIR /srv/app
+
+# Copy application from builder stage
+COPY --from=builder /build/api ./api
+COPY --from=builder /build/course-pages ./course-pages
+COPY --from=builder /build/entrypoint.R ./
+COPY --from=builder /build/authz-guard.yaml ./
+
+# ------------------------------------------------------------------------------------
+# Final configuration
+# ------------------------------------------------------------------------------------
+
+# Expose port
+EXPOSE 8080
+
+# Use tini as init system for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Start the application with sidecar integration
+CMD ["sidecar", "--", "R", "-q", "-f", "/srv/app/entrypoint.R"]

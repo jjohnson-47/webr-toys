@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Probability Calculation Response Schema", 
+  "description": "Schema for /tutorial/calculate-probability endpoint response",
+  "type": "object",
+  "properties": {
+    "lower_bound": {
+      "type": "number",
+      "description": "Lower integration bound"
+    },
+    "upper_bound": {
+      "type": "number", 
+      "description": "Upper integration bound"
+    },
+    "probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Calculated probability value"
+    },
+    "interpretation": {
+      "type": "string",
+      "description": "Human-readable interpretation"
+    },
+    "area_under_curve": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Area under the PDF curve"
+    },
+    "integration_error": {
+      "type": "number",
+      "description": "Numerical integration error estimate"
+    }
+  },
+  "required": ["lower_bound", "upper_bound", "probability", "interpretation", "area_under_curve"],
+  "additionalProperties": false
+}

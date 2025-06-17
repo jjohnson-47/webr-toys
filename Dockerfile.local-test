@@ -1,0 +1,35 @@
+# Local test Dockerfile using alternative registry (Quay.io)
+# This allows us to test our security patterns without Docker Hub issues
+
+FROM quay.io/centos/centos:8 AS base
+
+# Test security update pattern (similar to apt-get upgrade)
+RUN yum update -y \
+    && yum install -y curl tini \
+    && yum clean all \
+    && rm -rf /var/cache/yum
+
+# Test sidecar creation pattern (similar to our secure Dockerfile)
+RUN echo '#!/bin/bash\n\
+echo "Local test sidecar starting..."\n\
+exec "$@"' > /usr/local/bin/sidecar \
+    && chmod +x /usr/local/bin/sidecar
+
+# Test non-root user creation pattern
+RUN useradd -r -u 1000 -s /bin/bash -d /srv/app testuser
+
+# Test file structure
+WORKDIR /srv/app
+COPY api ./api
+COPY course-pages ./course-pages
+
+# Test security hardening pattern (similar to our secure approach)
+RUN chown -R testuser:testuser /srv/app \
+    && find /usr/share/doc -type f -delete || true \
+    && find /usr/share/man -type f -delete || true
+
+# Test switching to non-root user  
+USER testuser
+
+# Test our expected runtime
+CMD ["sidecar", "/bin/sleep", "300"]

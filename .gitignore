@@ -1,0 +1,29 @@
+# R session files
+.Rhistory
+.RData
+.Rproj.user
+
+# Python / misc
+__pycache__/
+.venv/
+
+# Editor swap files
+*~
+*.swp
+
+# Claude / AI transient files
+.claude.json
+
+# Docker
+*.tar
+node_modules/
+
+# Lima CI Environment Cache
+.lima/cache/
+.lima/docker/
+
+# Local CI Environment
+.env
+tmp/
+artifacts/
+

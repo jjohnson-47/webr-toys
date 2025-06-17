@@ -1,0 +1,28 @@
+# Act configuration for webr-toys
+# This configures act to better emulate the GitHub Actions environment
+
+# Use Ubuntu 22.04 to match GitHub Actions exactly
+-P ubuntu-latest=catthehacker/ubuntu:act-22.04
+
+# Set platform architecture
+--platform ubuntu-latest
+
+# Use secrets from environment variables
+--secret-file .env
+
+# Mount project directory to preserve file changes
+--bind
+
+# Enable verbose output for debugging
+--verbose
+
+# Use cache directory
+--artifact-server-path ./tmp/artifacts
+
+# Set default environment variables to match CI
+--env CI=true
+--env GITHUB_ACTIONS=true
+--env RUNNER_OS=Linux
+
+# Container options for better resource allocation
+--container-options "--memory=4g --cpus=2"

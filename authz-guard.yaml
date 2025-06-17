@@ -1,0 +1,39 @@
+# Authorization Guard Sidecar Configuration
+# This configuration enables the agentic sidecar for authentication and authorization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authz-guard-config
+  labels:
+    app: webr-toys
+    component: auth-sidecar
+data:
+  # Sidecar configuration for auth guard
+  enabled: "true"
+  
+  # Authorization settings
+  auth:
+    enabled: "true"
+    mode: "guard"
+    
+  # Logging configuration
+  logging:
+    level: "info"
+    format: "json"
+    
+  # Network settings
+  network:
+    listen_port: "8080"
+    upstream_port: "8000"
+    
+  # Security policies
+  policies:
+    # Allow health check endpoints without auth
+    - path: "/ping"
+      method: "GET"
+      auth_required: false
+    
+    # Default policy - require authentication
+    - path: "/*"
+      method: "*"
+      auth_required: true

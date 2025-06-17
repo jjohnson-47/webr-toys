@@ -8,7 +8,7 @@
 # ------------------------------------------------------------------------------------
 # NOTE: replace tag if the hub publishes a newer version.
 
-FROM ghcr.io/jjohnson-47/hub-base:latest AS base
+FROM ghcr.io/jjohnson-47/webr-toys/hub-base:latest AS base
 
 # ---------------------------
 # Install R & minimal packages

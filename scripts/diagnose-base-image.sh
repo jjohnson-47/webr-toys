@@ -30,10 +30,10 @@ log_error() {
 }
 
 # Configuration
-BASE_IMAGE="ghcr.io/jjohnson-47/hub-base:latest"
+BASE_IMAGE="ghcr.io/jjohnson-47/webr-toys/hub-base:latest"
 REGISTRY="ghcr.io"
 REPO_OWNER="jjohnson-47"
-REPO_NAME="hub-base"
+REPO_NAME="webr-toys"
 
 check_github_access() {
     log_info "Checking GitHub repository access..."

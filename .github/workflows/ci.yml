@@ -10,6 +10,14 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    
+    # Grant necessary permissions for security scanning and container publishing
+    permissions:
+      security-events: write # Required to upload SARIF results to Security tab
+      packages: write        # Required to push container images to GHCR
+      contents: read         # Required for actions/checkout
+      id-token: write        # Required for signing images with cosign/sigstore
+    
     defaults:
       run:
         working-directory: ${{ github.workspace }}
@@ -86,12 +94,14 @@ jobs:
 
       - name: Test base image availability
         run: |
-          echo "🔍 Testing base image access..."
-          if docker manifest inspect ghcr.io/jjohnson-47/hub-base:latest >/dev/null 2>&1; then
+          echo "🔍 Testing base image access for ghcr.io/jjohnson-47/webr-toys/hub-base:latest..."
+          if docker manifest inspect ghcr.io/jjohnson-47/webr-toys/hub-base:latest >/dev/null 2>&1; then
             echo "✅ Base image accessible, using main Dockerfile"
+            echo "ℹ️  Build strategy: Using hub-base for production sidecar functionality"
             echo "USE_FALLBACK=false" >> $GITHUB_ENV
           else
             echo "⚠️ Base image not accessible, using fallback Dockerfile"
+            echo "ℹ️  Build strategy: Self-contained Ubuntu build with simulated sidecar"
             echo "USE_FALLBACK=true" >> $GITHUB_ENV
           fi
 
@@ -107,29 +117,40 @@ jobs:
             org.opencontainers.image.source=${{ github.repositoryUrl }}
           outputs: type=docker,dest=/tmp/image.tar
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner (Quality Gate)
         uses: aquasecurity/trivy-action@master
         with:
           input: /tmp/image.tar
           format: 'sarif'
           output: 'trivy-results.sarif'
+          # Quality gate: fail build on critical/high vulnerabilities
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-results.sarif') != ''
+        if: success() || failure() # Upload results whether scan passed or failed
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Install cosign
-        if: github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')
+        if: (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')) && github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
 
       - name: Push and sign container image
-        if: github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')
+        if: (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/mvp/')) && github.event_name != 'pull_request'
         run: |
+          echo "🚀 Pushing and signing container image for branch: ${{ github.ref }}"
+          echo "📦 Image: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+          
           # Load and push the image
           docker load --input /tmp/image.tar
           docker push ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
           
+          echo "🔏 Signing image with cosign..."
           # Sign the image
           cosign sign --yes ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          
+          echo "✅ Container image pushed and signed successfully"

@@ -35,7 +35,7 @@ log_error() {
 }
 
 # Configuration
-BASE_IMAGE="ghcr.io/jjohnson-47/hub-base:latest"
+BASE_IMAGE="ghcr.io/jjohnson-47/webr-toys/hub-base:latest"
 DOCKERFILE_MAIN="$PROJECT_ROOT/Dockerfile"
 DOCKERFILE_FALLBACK="$PROJECT_ROOT/Dockerfile.fallback"
 IMAGE_TAG="${1:-webr-toys:local}"

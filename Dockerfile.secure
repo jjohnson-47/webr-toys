@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 
 # Secure Dockerfile for webr-toys with vulnerability mitigation
 # This version focuses on minimizing security vulnerabilities
@@ -22,41 +21,28 @@ RUN apt-get update -y \
     && rm -rf /var/tmp/*
 
 # Create enhanced sidecar with security focus
-RUN cat > /usr/local/bin/sidecar << 'EOF'
-#!/bin/bash
-# Secure sidecar for webr-toys with enhanced security
-set -euo pipefail
+RUN echo '#!/bin/bash\n\
+# Secure sidecar for webr-toys with enhanced security\n\
+set -euo pipefail\n\
+\n\
+# Security-focused logging\n\
+log() {\n\
+    echo "$(date -Iseconds) [SIDECAR-SECURE] [$1] $2" >&2\n\
+}\n\
+\n\
+log "INFO" "Starting secure sidecar v1.0.0"\n\
+log "INFO" "Security: Enhanced mode enabled"\n\
+\n\
+# Skip -- separator if present\n\
+if [ "$1" = "--" ]; then\n\
+    shift\n\
+fi\n\
+\n\
+# Start application (no privilege dropping needed for non-root user)\n\
+log "INFO" "Starting application: $*"\n\
+exec "$@"' > /usr/local/bin/sidecar \
+    && chmod +x /usr/local/bin/sidecar
 
-# Security-focused logging
-log() {
-    echo "$(date -Iseconds) [SIDECAR-SECURE] [$1] $2" >&2
-}
-
-# Drop privileges function
-drop_privileges() {
-    if [ "$(id -u)" = "0" ]; then
-        log "INFO" "Dropping root privileges..."
-        exec su-exec app "$@"
-    else
-        exec "$@"
-    fi
-}
-
-log "INFO" "Starting secure sidecar v1.0.0"
-log "INFO" "Security: Enhanced mode enabled"
-
-# Skip -- separator if present
-if [ "$1" = "--" ]; then
-    shift
-fi
-
-# Start application with dropped privileges
-log "INFO" "Starting application: $*"
-drop_privileges "$@"
-EOF
-
-# Make sidecar executable
-RUN chmod +x /usr/local/bin/sidecar
 
 # ------------------------------------------------------------------------------------
 # R Runtime Stage - Minimal R installation with security updates

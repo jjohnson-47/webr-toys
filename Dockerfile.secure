@@ -69,7 +69,7 @@ RUN apt-get update -y \
     && apt-get upgrade -y \
     # Remove package manager to reduce attack surface
     && apt-get autoremove -y \
-    && apt-get purge -y --auto-remove \
+    && apt-get purge -y --auto-remove --allow-remove-essential \
        apt \
        apt-utils \
     && apt-get autoclean \

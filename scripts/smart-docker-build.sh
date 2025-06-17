@@ -38,7 +38,10 @@ log_error() {
 BASE_IMAGE="ghcr.io/jjohnson-47/webr-toys/hub-base:latest"
 DOCKERFILE_MAIN="$PROJECT_ROOT/Dockerfile"
 DOCKERFILE_FALLBACK="$PROJECT_ROOT/Dockerfile.fallback"
+DOCKERFILE_SECURE="$PROJECT_ROOT/Dockerfile.secure"
+DOCKERFILE_MULTISTAGE="$PROJECT_ROOT/Dockerfile.multistage"
 IMAGE_TAG="${1:-webr-toys:local}"
+BUILD_MODE="${2:-auto}" # auto, secure, multistage, fallback
 
 test_base_image_access() {
     log_info "Testing access to base image: $BASE_IMAGE"
@@ -95,6 +98,18 @@ build_with_fallback_dockerfile() {
     docker build -f "$DOCKERFILE_FALLBACK" -t "$IMAGE_TAG" "$PROJECT_ROOT"
 }
 
+build_with_secure_dockerfile() {
+    log_info "Building with secure Dockerfile (vulnerability-hardened)..."
+    log_info "Using security-focused Ubuntu build with mitigations"
+    docker build -f "$DOCKERFILE_SECURE" -t "$IMAGE_TAG" "$PROJECT_ROOT"
+}
+
+build_with_multistage_dockerfile() {
+    log_info "Building with multi-stage Dockerfile (optimized)..."
+    log_info "Using multi-stage build for smaller, efficient image"
+    docker build -f "$DOCKERFILE_MULTISTAGE" -t "$IMAGE_TAG" "$PROJECT_ROOT"
+}
+
 show_usage() {
     cat << EOF
 Smart Docker Build Script for webr-toys
@@ -136,6 +151,7 @@ main() {
     
     log_info "🐳 Smart Docker Build for webr-toys"
     log_info "Target image: $IMAGE_TAG"
+    log_info "Build mode: $BUILD_MODE"
     echo
     
     # Test Docker and registry access
@@ -145,50 +161,96 @@ main() {
         AUTH_AVAILABLE=false
     fi
     
-    # Test base image access
-    if test_base_image_access; then
-        # Base image is accessible, use main Dockerfile
-        log_info "Using main Dockerfile with hub-base..."
-        if build_with_main_dockerfile; then
-            log_success "Build completed successfully with hub-base!"
-            echo
-            log_info "Image built: $IMAGE_TAG"
-            log_info "Base image: $BASE_IMAGE (accessible)"
-        else
-            log_error "Build failed with main Dockerfile"
-            log_info "Falling back to self-contained build..."
-            if build_with_fallback_dockerfile; then
-                log_success "Build completed successfully with fallback!"
-                log_warning "Note: Using fallback mode (no agentic sidecar)"
+    # Handle specific build modes
+    case "$BUILD_MODE" in
+        "secure")
+            log_info "🔒 Security-focused build requested"
+            if build_with_secure_dockerfile; then
+                log_success "Build completed successfully with security hardening!"
+                echo
+                log_info "Image built: $IMAGE_TAG (security-hardened)"
+                log_info "Note: Enhanced security mitigations applied"
             else
-                log_error "Both main and fallback builds failed"
+                log_error "Secure build failed"
                 exit 1
             fi
-        fi
-    else
-        # Base image not accessible, use fallback
-        log_warning "Base image not accessible, using fallback Dockerfile..."
-        if build_with_fallback_dockerfile; then
-            log_success "Build completed successfully with fallback!"
-            echo
-            log_info "Image built: $IMAGE_TAG"
-            log_warning "Note: Using fallback mode (simulated sidecar)"
-            echo
-            if [ "$AUTH_AVAILABLE" = false ]; then
-                log_info "💡 To test with the actual hub-base image:"
-                echo "  export GITHUB_TOKEN=your_personal_access_token"
-                echo "  export GITHUB_ACTOR=your_github_username"
-                echo "  $0"
+            ;;
+        "multistage")
+            log_info "⚡ Multi-stage build requested"
+            if build_with_multistage_dockerfile; then
+                log_success "Build completed successfully with multi-stage optimization!"
+                echo
+                log_info "Image built: $IMAGE_TAG (multi-stage)"
+                log_info "Note: Optimized for size and security"
+            else
+                log_error "Multi-stage build failed"
+                exit 1
             fi
-        else
-            log_error "Fallback build failed"
-            exit 1
-        fi
-    fi
+            ;;
+        "fallback")
+            log_info "🛠️ Fallback build requested"
+            if build_with_fallback_dockerfile; then
+                log_success "Build completed successfully with fallback!"
+                echo
+                log_info "Image built: $IMAGE_TAG (fallback)"
+                log_info "Note: Self-contained Ubuntu build"
+            else
+                log_error "Fallback build failed"
+                exit 1
+            fi
+            ;;
+        "auto"|*)
+            # Automatic mode - test base image access and choose strategy
+            if test_base_image_access; then
+                # Base image is accessible, use main Dockerfile
+                log_info "Using main Dockerfile with hub-base..."
+                if build_with_main_dockerfile; then
+                    log_success "Build completed successfully with hub-base!"
+                    echo
+                    log_info "Image built: $IMAGE_TAG"
+                    log_info "Base image: $BASE_IMAGE (accessible)"
+                else
+                    log_error "Build failed with main Dockerfile"
+                    log_info "Falling back to self-contained build..."
+                    if build_with_fallback_dockerfile; then
+                        log_success "Build completed successfully with fallback!"
+                        log_warning "Note: Using fallback mode (no agentic sidecar)"
+                    else
+                        log_error "Both main and fallback builds failed"
+                        exit 1
+                    fi
+                fi
+            else
+                # Base image not accessible, use fallback
+                log_warning "Base image not accessible, using fallback Dockerfile..."
+                if build_with_fallback_dockerfile; then
+                    log_success "Build completed successfully with fallback!"
+                    echo
+                    log_info "Image built: $IMAGE_TAG"
+                    log_warning "Note: Using fallback mode (simulated sidecar)"
+                    echo
+                    if [ "$AUTH_AVAILABLE" = false ]; then
+                        log_info "💡 To test with the actual hub-base image:"
+                        echo "  export GITHUB_TOKEN=your_personal_access_token"
+                        echo "  export GITHUB_ACTOR=your_github_username"
+                        echo "  $0"
+                    fi
+                else
+                    log_error "Fallback build failed"
+                    exit 1
+                fi
+            fi
+            ;;
+    esac
     
     echo
     log_info "🎉 Build completed! You can now run:"
     echo "  docker run -p 8080:8080 $IMAGE_TAG"
+    echo ""
+    log_info "💡 Additional options:"
+    echo "  $0 $IMAGE_TAG secure    # Security-hardened build"
+    echo "  $0 $IMAGE_TAG multistage # Optimized multi-stage build"
+    echo "  ./scripts/local-trivy-scan.sh $IMAGE_TAG # Scan for vulnerabilities"
 }
 
 # Handle help flag

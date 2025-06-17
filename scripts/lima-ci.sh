@@ -171,6 +171,19 @@ diagnose_docker() {
     "$PROJECT_ROOT/scripts/diagnose-base-image.sh"
 }
 
+scan_vulnerabilities() {
+    if ! limactl list | grep "^$LIMA_NAME" | grep -q "Running"; then
+        log_info "Environment is not running. Starting..."
+        start_environment
+    fi
+    
+    log_info "Running vulnerability scan in Lima environment..."
+    limactl shell "$LIMA_NAME" bash -c "
+        cd /workspace/webr-toys
+        ./scripts/local-trivy-scan.sh webr-toys:lima-scan all
+    "
+}
+
 show_help() {
     cat << EOF
 Lima CI Environment Manager for webr-toys
@@ -188,6 +201,7 @@ COMMANDS:
     ci          Run full CI simulation
     test        Run tests only
     build       Build Docker image (with registry auth if GITHUB_TOKEN set)
+    scan        Run vulnerability scan (Trivy) on built image
     diagnose    Diagnose Docker registry and base image issues
     
     help        Show this help message
@@ -254,6 +268,10 @@ case "${1:-help}" in
     "build")
         check_lima
         build_docker
+        ;;
+    "scan")
+        check_lima
+        scan_vulnerabilities
         ;;
     "diagnose")
         diagnose_docker

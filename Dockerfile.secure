@@ -1,0 +1,127 @@
+# syntax=docker/dockerfile:1
+
+# Secure Dockerfile for webr-toys with vulnerability mitigation
+# This version focuses on minimizing security vulnerabilities
+
+FROM ubuntu:22.04 AS base
+
+# Install security updates and core dependencies
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       # Core utilities  
+       curl \
+       ca-certificates \
+       tini \
+    # Apply all security updates
+    && apt-get upgrade -y \
+    # Clean up to reduce attack surface
+    && apt-get autoremove -y \
+    && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
+
+# Create enhanced sidecar with security focus
+RUN cat > /usr/local/bin/sidecar << 'EOF'
+#!/bin/bash
+# Secure sidecar for webr-toys with enhanced security
+set -euo pipefail
+
+# Security-focused logging
+log() {
+    echo "$(date -Iseconds) [SIDECAR-SECURE] [$1] $2" >&2
+}
+
+# Drop privileges function
+drop_privileges() {
+    if [ "$(id -u)" = "0" ]; then
+        log "INFO" "Dropping root privileges..."
+        exec su-exec app "$@"
+    else
+        exec "$@"
+    fi
+}
+
+log "INFO" "Starting secure sidecar v1.0.0"
+log "INFO" "Security: Enhanced mode enabled"
+
+# Skip -- separator if present
+if [ "$1" = "--" ]; then
+    shift
+fi
+
+# Start application with dropped privileges
+log "INFO" "Starting application: $*"
+drop_privileges "$@"
+EOF
+
+# Make sidecar executable
+RUN chmod +x /usr/local/bin/sidecar
+
+# ------------------------------------------------------------------------------------
+# R Runtime Stage - Minimal R installation with security updates
+# ------------------------------------------------------------------------------------
+
+FROM base AS runtime
+
+# Create non-root user for security
+RUN useradd -r -u 1000 -s /bin/bash -d /srv/app app
+
+# Install R and required packages with security updates
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       # R runtime (use pre-compiled packages for security)
+       r-base \
+       r-cran-plumber \
+       r-cran-jsonlite \
+       r-cran-uuid \
+       r-cran-ggplot2 \
+       # Minimal runtime libraries
+       libcurl4 \
+       libsodium23 \
+    # Apply security updates
+    && apt-get upgrade -y \
+    # Remove package manager to reduce attack surface
+    && apt-get autoremove -y \
+    && apt-get purge -y --auto-remove \
+       apt \
+       apt-utils \
+    && apt-get autoclean \
+    # Clean up thoroughly
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/cache/apt/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/* \
+    && rm -rf /var/log/* \
+    # Remove unnecessary system files
+    && find /usr/share/doc -type f -delete \
+    && find /usr/share/man -type f -delete \
+    && find /usr/share/locale -type f -delete
+
+# Set up secure working directory
+WORKDIR /srv/app
+RUN chown app:app /srv/app
+
+# Copy application files
+COPY --chown=app:app api ./api
+COPY --chown=app:app course-pages ./course-pages  
+COPY --chown=app:app entrypoint.R ./
+COPY --chown=app:app authz-guard.yaml ./
+
+# Security hardening
+RUN chmod 755 /srv/app \
+    && chmod -R 644 /srv/app/* \
+    && chmod 755 /srv/app/api \
+    && chmod 755 /srv/app/course-pages
+
+# Switch to non-root user
+USER app
+
+# Expose port
+EXPOSE 8080
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Start with secure sidecar
+CMD ["sidecar", "--", "R", "-q", "-f", "/srv/app/entrypoint.R"]

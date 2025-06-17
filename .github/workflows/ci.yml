@@ -92,17 +92,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test base image availability
+      - name: Select build strategy
         run: |
-          echo "🔍 Testing base image access for ghcr.io/jjohnson-47/webr-toys/hub-base:latest..."
-          if docker manifest inspect ghcr.io/jjohnson-47/webr-toys/hub-base:latest >/dev/null 2>&1; then
+          echo "🔍 Selecting optimal build strategy..."
+          
+          # Check for security-focused build flag
+          if [[ "${{ github.event.head_commit.message }}" == *"[secure-build]"* ]]; then
+            echo "🔒 Security-focused build requested"
+            echo "ℹ️  Build strategy: Using hardened Dockerfile with vulnerability mitigations"
+            echo "USE_DOCKERFILE=Dockerfile.secure" >> $GITHUB_ENV
+          elif docker manifest inspect ghcr.io/jjohnson-47/webr-toys/hub-base:latest >/dev/null 2>&1; then
             echo "✅ Base image accessible, using main Dockerfile"
             echo "ℹ️  Build strategy: Using hub-base for production sidecar functionality"
-            echo "USE_FALLBACK=false" >> $GITHUB_ENV
+            echo "USE_DOCKERFILE=Dockerfile" >> $GITHUB_ENV
           else
             echo "⚠️ Base image not accessible, using fallback Dockerfile"
             echo "ℹ️  Build strategy: Self-contained Ubuntu build with simulated sidecar"
-            echo "USE_FALLBACK=true" >> $GITHUB_ENV
+            echo "USE_DOCKERFILE=Dockerfile.fallback" >> $GITHUB_ENV
           fi
 
       - name: Build Docker image
@@ -110,11 +116,12 @@ jobs:
         id: build
         with:
           context: .
-          file: ${{ env.USE_FALLBACK == 'true' && './Dockerfile.fallback' || './Dockerfile' }}
+          file: ${{ env.USE_DOCKERFILE }}
           push: false
           tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.dockerfile=${{ env.USE_DOCKERFILE }}
           outputs: type=docker,dest=/tmp/image.tar
 
       - name: Run Trivy vulnerability scanner (Quality Gate)
